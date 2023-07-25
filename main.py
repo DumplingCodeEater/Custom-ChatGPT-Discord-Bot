@@ -7,7 +7,6 @@ import ffmpeg
 from gtts import gTTS
 from discord import Color
 from dotenv import load_dotenv, find_dotenv
-from find_closest_name import find_closest_match
 from keep_alive import keep_alive
 from discord.ext import commands
 from music_functions import Music, search_youtube
