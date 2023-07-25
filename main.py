@@ -3,45 +3,14 @@ import os
 import logging
 import random
 import asyncio
+import ffmpeg
 from gtts import gTTS
 from discord import Color
 from dotenv import load_dotenv, find_dotenv
 from find_closest_name import find_closest_match
 from keep_alive import keep_alive
 from discord.ext import commands
-import youtube_dl
-#from music import play
-#from opuslib import Encoder
-
-
-# Modify the Music cog's play function to accept either a URL or a filename
-async def play(self, ctx, *, url_or_filename):
-    if not ctx.voice_client:
-        await ctx.invoke(self.join)
-
-    ctx.voice_client.stop()
-
-    FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-    YDL_OPTIONS = {'format': 'bestaudio'}
-
-    # Check if the input is a valid URL or a filename
-    is_url = True
-    with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
-        try:
-            info = ydl.extract_info(url_or_filename, download=False)
-            url2 = info['formats'][0]['url']
-        except:
-            is_url = False
-
-    # If the input is a valid URL, use youtube_dl to download the audio
-    if is_url:
-        source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
-        await ctx.send(f"Playing: {info['title']}")
-    else:
-        # Otherwise, assume it's a filename and play the local audio file
-        source = await discord.FFmpegOpusAudio.from_probe(url_or_filename, **FFMPEG_OPTIONS)
-
-    ctx.voice_client.play(source)
+from music_functions import Music, search_youtube
 
 
 _ = load_dotenv(find_dotenv())  # Read local .env file
@@ -58,8 +27,9 @@ logger = logging.getLogger(__name__)
 
 colors = [Color.red(), Color.orange(), Color.gold(), Color.green(), Color.blue(), Color.purple()]  # Rainbow colors
 
-# Update the path to the ffmpeg executable here
-ffmpeg_executable = "ffmpeg-6.0-amd64-static/ffmpeg"
+# Initialize the Music class
+music = Music()
+
 
 @bot.event
 async def on_ready():
@@ -85,17 +55,14 @@ async def rainbow_text_animation(rainbow_message, message, user_mention, delay=0
             rainbow_text += char
     rainbow_message = await message.channel.send('↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓')
     while True:  # Number of color iterations
-        embed = discord.Embed(description=f'{user_mention} HELLO', color=Color.random())
+        embed = discord.Embed(description=f'{user_mention} UR MOM IS GAY', color=Color.random())
         await rainbow_message.edit(embed=embed)
         await asyncio.sleep(delay)
 
 
-@bot.command()
+@bot.command(help="Play a rainbow animation with the provided username.")
 async def nay(ctx, *, input_username):
-    words = input_username.split(' ')
-    if len(words) >= 1:
-        input_username = ' '.join(words[0:])  # Joining the words back together
-
+    if input_username:
         mentioned_users = ctx.guild.members
         closest_username = get_closest_username(input_username, mentioned_users)
 
@@ -108,7 +75,7 @@ async def nay(ctx, *, input_username):
     else:
         await ctx.send('Invalid command format.')
 
-@bot.command()
+@bot.command(help="Play a text-to-speech message in the voice channel you are in.")
 async def tts(ctx, *, tts_message):
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
@@ -119,9 +86,11 @@ async def tts(ctx, *, tts_message):
             vc = ctx.guild.voice_client
 
         tts = gTTS(text=tts_message, lang='en', slow=False)
+        if os.path.exists("tts.mp3"):
+                os.remove("tts.mp3")
         tts.save('tts.mp3')  # Save the TTS audio to a file
 
-        vc.play(discord.FFmpegPCMAudio('pony.mp3'))
+        vc.play(discord.FFmpegPCMAudio('tts.mp3'))
 
         while vc.is_playing():
             await asyncio.sleep(1)
@@ -130,8 +99,8 @@ async def tts(ctx, *, tts_message):
     else:
         await ctx.send('You need to be in a voice channel to use $tts.')
 
-@bot.command()
-async def pony(ctx, *, url_or_filename):
+@bot.command(help="Play a downloaded audio file or a YouTube URL in the voice channel you are in.")
+async def urlplay_downloaded(ctx, *, url_or_filename):
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
 
@@ -140,20 +109,111 @@ async def pony(ctx, *, url_or_filename):
         else:
             vc = ctx.guild.voice_client
 
-        await play(ctx, url_or_filename)  # Call the play function with ctx instead of message
+        await music.play(ctx=ctx, url_or_filename=url_or_filename)  # Call the play function with ctx instead of message
     else:
         await ctx.send('You need to be in a voice channel to use $pony.')
 
+
+@bot.command(help="Play a YouTube video or audio from the provided URL.")
+async def urlplay(ctx, *, url):
+    if ctx.author.voice and ctx.author.voice.channel:
+        voice_channel = ctx.author.voice.channel
+
+        if not ctx.guild.voice_client:
+            vc = await voice_channel.connect()
+        else:
+            vc = ctx.guild.voice_client
+
+        await music.enqueue(ctx=ctx, url=url)  # Call the play function with ctx instead of message
+    else:
+        await ctx.send('You need to be in a voice channel to use $pony.')
+
+
+@bot.command(help="Search for a YouTube video or audio and queue it in the playlist.")
+async def search(ctx, *, query):
+    url = await search_youtube(ctx=ctx, query=query)
+
+    if ctx.author.voice and ctx.author.voice.channel:
+        voice_channel = ctx.author.voice.channel
+
+        if not ctx.guild.voice_client:
+            vc = await voice_channel.connect()
+        else:
+            vc = ctx.guild.voice_client
+
+        # Use the play2 method of the Music class
+        await music.enqueue(ctx=ctx, url=url)
+    else:
+        await ctx.send('You need to be in a voice channel to use $pony.')
+
+
+
+@bot.command(help="Pause the currently playing song.")
+async def pause(ctx):
+    voice_client = ctx.guild.voice_client
+
+    if voice_client and voice_client.is_playing():
+        voice_client.pause()
+        await ctx.send("Paused ⏸️")
+    else:
+        await ctx.send("Nothing is playing to pause.")
+
+
+@bot.command(help="Resume the currently paused song.")
+async def resume(ctx):
+    voice_client = ctx.guild.voice_client
+
+    if voice_client and voice_client.is_paused():
+        voice_client.resume()
+        await ctx.send("Resumed ⏯️")
+    else:
+        await ctx.send("Nothing is paused to resume.")
+
+
+
+@bot.command(help="A test command to play 'pony.mp3' in the voice channel you are in.")
+async def test(ctx):
+    # Send a test message
+    await ctx.channel.send('This is a test command!')
+
+
+    # Create the audio source
+    source = discord.FFmpegOpusAudio('pony.mp3')
+    
+    
+    # Join the voice channel if not already connected
+    if not ctx.voice_client:
+        vc = await ctx.author.voice.channel.connect()
+    else:
+        vc = ctx.voice_client
+
+    # Play the audio
+    vc.play(source)
+
+    # Log that the audio playback has started
+    logging.info("Audio playback started")
+
+    # Wait until the audio is finished playing
+    while vc.is_playing():
+        await asyncio.sleep(1)
+
+    # Log that the audio playback has finished
+    logging.info("Audio playback finished")
+
+    # Disconnect from the voice channel after playback is complete
+    await vc.disconnect()
+
+    # Log that the bot has disconnected from the voice channel
+    logging.info("Bot disconnected from the voice channel")
+    
+
+
+  
 @bot.event
 async def on_message(message):
     print("Message received:", message.content)  # Add this print statement
     if message.author == bot.user:
         return
-
-    # Custom command handling
-    if message.content.startswith('$test'):  # Replace $test with your actual custom command prefix
-        # Handle $test command
-        await message.channel.send('This is a test command!')
 
     # Other custom command handling can be added here...
 
@@ -161,10 +221,9 @@ async def on_message(message):
 
     await bot.process_commands(message)  # Process the built-in commands
 
-@bot.command()
-async def test(ctx):
-    await ctx.send("Testing: Bot is responding!")
+
 
 keep_alive()
 my_secret = os.environ['TOKEN']
 bot.run(my_secret)
+
