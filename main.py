@@ -54,7 +54,7 @@ async def rainbow_text_animation(rainbow_message, message, user_mention, delay=0
             rainbow_text += char
     rainbow_message = await message.channel.send('↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓')
     while True:  # Number of color iterations
-        embed = discord.Embed(description=f'{user_mention} UR MOM IS GAY', color=Color.random())
+        embed = discord.Embed(description=f'{user_mention} You are a GAMER', color=Color.random())
         await rainbow_message.edit(embed=embed)
         await asyncio.sleep(delay)
 
