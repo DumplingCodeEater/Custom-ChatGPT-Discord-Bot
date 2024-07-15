@@ -4,3 +4,4 @@ gTTS
 ffmpeg-python
 yt-dlp
 flask
+PyNaCl
