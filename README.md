@@ -20,8 +20,8 @@ This is a Discord bot with various functions, primarily serving as a YouTube aud
 ## Requirements
 
 - **Python 3.10+**
-- **Discord.py**: `pip install discord.py`
-- **Other Dependencies**: Listed in `requirements.txt`
+- **Docker**
+- **Other Libraries/Dependencies**: Listed in `requirements.txt`
 
 ## Setup and Installation
 ### 1. Clone the Repository and Navigate to the project directory:
