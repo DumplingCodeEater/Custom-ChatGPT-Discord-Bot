@@ -5,11 +5,26 @@ import logging
 import ffmpeg
 import asyncio
 import queue
+from discord.ext import commands
+
+class Song:
+  def __init__(self, title, url, duration):
+        self.title = title
+        self.url = url
+        self.duration = duration
 
 class Music:
     def __init__(self):
         self.queue = queue.Queue()
+        self.playing_list = False
+        self.loop_queue = False  # New attribute to store loop state
 
+
+    def toggle_loop_queue(self):
+        self.loop_queue = not self.loop_queue
+        return self.loop_queue
+
+  
     def convert_to_audio(self, video_file, audio_file):
         (
             ffmpeg.input(video_file)
@@ -68,8 +83,9 @@ class Music:
 
     async def play_next(self, ctx):
         if not self.queue.empty():
-            url = self.queue.get()
-
+            song = self.queue.get()  # Get the next Song instance from the queue
+            print('This is the queue object: ' + str(self.queue))
+    
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'postprocessors': [{
@@ -79,35 +95,101 @@ class Music:
                 }],
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+                info = ydl.extract_info(song.url, download=False)  # Extract the URL from the Song instance
                 url2 = info['url']
                 source = await discord.FFmpegOpusAudio.from_probe(url2, method='fallback')
                 await ctx.send(f"Playing: {info['title']}")
-                
-                # Play the audio and call play_next when finished
-                ctx.voice_client.play(source)
-
+    
+                # Check if the bot is connected to a voice channel
+                if not ctx.voice_client:
+                    await ctx.invoke(ctx.bot.get_command("join"))
+    
+                # Play the audio and schedule the next song to play
+                ctx.voice_client.play(source, after=lambda e: ctx.bot.loop.create_task(self.play_next(ctx)))
+    
         else:
-            # Queue is empty, stop playing
+            # Queue is empty, stop playing and disconnect from the voice channel
             await ctx.voice_client.disconnect()
 
 
+
     # ENQUEUES song to playlist
-    async def enqueue(self, ctx, url):
+    async def enqueue(self, ctx, song):
         # Add the URL to the queue
-        self.queue.put(url)
-        await ctx.send(f"Enqueued song")
+        if song is None:
+          return
+        self.queue.put(song)
+        await ctx.send(f"Enqueued song: {song.title}")
 
         # Start playing if the bot is not already playing
-        if not ctx.voice_client.is_playing():
-            await self.play_next(ctx)
+        # if not ctx.voice_client.is_playing():
+        #     await self.play_next(ctx)
           
         #await ctx.voice_client.disconnect()
   
     def is_playing(self, ctx):
         return ctx.voice_client and ctx.voice_client.is_playing()
+      
+    def skip(self, ctx):
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
 
-# Searches first 5 search options of given query
+    # Enqueues entire playlist from youtube
+    # Enqueues entire playlist from youtube
+    async def enqueue_youtube_playlist(self, ctx, url):
+        ydl_opts = {
+            'dump_single_json': True,
+            'format': 'bestaudio/best',
+            'extract_flat': 'in_playlist',
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            playlist_info = ydl.extract_info(url, download=False)
+            if 'entries' in playlist_info:
+                playlist_songs = playlist_info['entries']
+    
+                if playlist_songs:
+                    for song_info in playlist_songs:
+                        try:
+                            # Extract song title, URL, and duration from the playlist
+                            song_title = song_info['title']
+                            song_url = song_info['url']
+                            song_duration = song_info['duration']
+    
+                            # Create a Song instance for each song in the playlist
+                            song = Song(title=song_title, url=song_url, duration=song_duration)
+    
+                            # Enqueue each song from the playlist
+                            await self.enqueue(ctx=ctx, song=song)
+                        except KeyError as e:
+                            # Handle the KeyError by printing an error message and continuing to the next song
+                            print(f"Skipping song due to missing key: {e}")
+            else:
+                await ctx.send("Couldn't extract playlist information.")
+
+    async def enqueue_url(self, ctx, url):
+        ydl_opts = {
+            'dump_single_json': True,
+            'format': 'bestaudio/best',
+        }
+    
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            song_info = ydl.extract_info(url, download=False)
+            try:
+                # Extract song title, URL, and duration from the song_info
+                song_title = song_info['title']
+                song_url = song_info['url']
+                song_duration = song_info['duration']
+    
+                # Create a Song instance for the song
+                song = Song(title=song_title, url=song_url, duration=song_duration)
+    
+                # Enqueue the single song
+                await self.enqueue(ctx=ctx, song=song)
+            except KeyError as e:
+                # Handle the KeyError by sending an error message
+                await ctx.send(f"Error: Missing key '{e}'. The provided URL may not be a valid YouTube video or audio.")
+    
+          
 async def search_youtube(ctx, query):
     ydl_opts = {
         'dump_json': True,
@@ -118,23 +200,24 @@ async def search_youtube(ctx, query):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"ytsearch5:{query}", download=False)
-        message = ""
-        urls = []
+        songs = []  # List to store instances of the Song class
         for i, item in enumerate(info['entries'][:5]):
-            duration_in_seconds = item['duration']
-            minutes = duration_in_seconds // 60
-            seconds = duration_in_seconds % 60
-            message += f"{i+1}. {item['title']} (**{minutes:02d}:{seconds:02d}**)\n"
-            urls.append(item['webpage_url'])
-        sent_message = await ctx.send(message)
-        for i in range(1, 6):
-            await sent_message.add_reaction(str(i) + "\N{variation selector-16}\N{combining enclosing keycap}")
-        def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ['1\N{variation selector-16}\N{combining enclosing keycap}', '2\N{variation selector-16}\N{combining enclosing keycap}', '3\N{variation selector-16}\N{combining enclosing keycap}', '4\N{variation selector-16}\N{combining enclosing keycap}', '5\N{variation selector-16}\N{combining enclosing keycap}']
-        try:
-            reaction, user = await ctx.bot.wait_for('reaction_add', timeout=30.0, check=check)
-            index = int(str(reaction.emoji)[0]) - 1
-            #await ctx.send(urls[index])
-            return urls[index]
-        except asyncio.TimeoutError:
-            await ctx.send('You did not react in time.')
+            song = Song(title=item['title'], url=item['webpage_url'], duration=item['duration'])
+            songs.append(song)
+
+    # Display the 5 searches as a selection menu on Discord
+    embed = discord.Embed(title=f"Search results for '{query}'", description="Choose a song by clicking its corresponding number in the reactions:", color=discord.Color.blue())
+    for i, song in enumerate(songs):
+        embed.add_field(name=f"{i+1}. {song.title}", value=f"Duration: {song.duration // 60}:{song.duration % 60 :02d}", inline=False)
+    sent_message =await ctx.send(embed=embed)
+
+    for i in range(1, 6):
+        await sent_message.add_reaction(str(i) + "\N{variation selector-16}\N{combining enclosing keycap}")
+    def check(reaction, user):
+        return user == ctx.author and str(reaction.emoji) in ['1\N{variation selector-16}\N{combining enclosing keycap}', '2\N{variation selector-16}\N{combining enclosing keycap}', '3\N{variation selector-16}\N{combining enclosing keycap}', '4\N{variation selector-16}\N{combining enclosing keycap}', '5\N{variation selector-16}\N{combining enclosing keycap}']
+    try:
+        reaction, user = await ctx.bot.wait_for('reaction_add', timeout=30.0, check=check)
+        index = int(str(reaction.emoji)[0]) - 1
+        return songs[index]  # Return the selected Song instance
+    except asyncio.TimeoutError:
+        await ctx.send('You did not react in time.')
