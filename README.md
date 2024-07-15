@@ -4,8 +4,12 @@ This is a Discord bot with various functions, primarily serving as a YouTube aud
 
 ## Features
 
-- **YouTube Music Playback**: Play music from YouTube in any voice channel in your Discord server.
-- 
+- **Rainbow Text Animation**:<br>
+  The ```$nay``` command creates a rainbow text animation with the provided username, displaying a colorful message in the chat.
+- **Text-to-Speech (TTS)**:<br> The ```$tts``` command plays a text-to-speech message in the voice channel the user is in, converting the provided text into speech.
+- **Play Audio from URL or File**:<br> The ```$urlplay_downloaded``` and ```$urlplay``` commands allow the bot to play audio from a downloaded file or a YouTube URL in the voice channel.
+- **Search and Queue YouTube Videos**:<br> The ```$search``` command searches for a YouTube video based on the provided query and queues it in the playlist.
+- **Pause and Resume**:<br> The ```$pause``` and ```$resume``` commands allow users to pause and resume the currently playing song.
 
 ## Requirements
 
@@ -14,12 +18,13 @@ This is a Discord bot with various functions, primarily serving as a YouTube aud
 - **Other Dependencies**: Listed in `requirements.txt`
 
 ## Setup and Installation
-### 1. Clone the Repository:
+### 1. Clone the Repository and Navigate to the project directory:
 ```bash
 git clone https://github.com/DumplingCodeEater/Discord-Bot.git
 cd Discord-Bot
 ```
 ### 2. Set Up Environment Variables:
+Refer to the following site for help on getting a discord bot token: <a>https://www.writebots.com/discord-bot-token/</a>
 - Option 1: Create a ```.env``` file in the root directory and add your discord bot token.
 - Option 2: Add your discord bot token as a secret (if your server gives you an option to add secrets)
 
