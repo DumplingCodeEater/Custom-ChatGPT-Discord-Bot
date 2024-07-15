@@ -1,2 +1,6 @@
 discord.py
-youtube-dl
+python-dotenv
+gTTS
+ffmpeg-python
+yt-dlp
+flask
