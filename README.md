@@ -4,7 +4,7 @@ This is a Discord bot with various functions, primarily serving as a YouTube aud
 
 ## Table of Contents
 1. [Features](#features)
-2. [Requirements](#requirements)
+2. [Prerequisites](#prerequisites)
 3. [Setup and Installation](#setup-and-installation)
 4. [License](#license)
 
@@ -17,10 +17,10 @@ This is a Discord bot with various functions, primarily serving as a YouTube aud
 - **Search and Queue YouTube Videos**:<br> The ```$search``` command searches for a YouTube video based on the provided query and queues it in the playlist.
 - **Pause and Resume**:<br> The ```$pause``` and ```$resume``` commands allow users to pause and resume the currently playing song.
 
-## Requirements
+## Prerequisites
 
-- **Python 3.10+**
-- **Docker**
+- **[Python 3.10+](https://www.python.org/downloads/)**
+- **[Docker](https://www.docker.com/products/docker-desktop/)**
 - **Other Libraries/Dependencies**: Listed in `requirements.txt`
 
 ## Setup and Installation
