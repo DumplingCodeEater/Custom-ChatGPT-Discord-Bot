@@ -2,6 +2,12 @@
 
 This is a Discord bot with various functions, primarily serving as a YouTube audio music bot in voice channels.
 
+## Table of Contents
+1. [Features](#features)
+2. [Requirements](#requirements)
+3. [Setup and Installation](#setup-and-installation)
+4. [License](#license)
+
 ## Features
 
 - **Rainbow Text Animation**:<br>
@@ -37,3 +43,5 @@ TOKEN = "your_discord_token"
 docker build -t discord-bot .
 docker run --env-file .env discord-bot
 ```
+## License
+Distributed under the MIT License. See LICENSE.txt for more information.
