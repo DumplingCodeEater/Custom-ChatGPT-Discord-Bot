@@ -205,23 +205,6 @@ async def skip(ctx):
     await ctx.send("Skipped ⏭️")
 
 
-# @bot.command(help="List the current songs in the queue.")
-# async def queue(ctx):
-#     if music.queue.empty():
-#         await ctx.send("The queue is empty.")
-#     else:
-#         queue_list = [song.title for song in music.queue.queue]  # Extract titles from Song instances
-
-#         # Paginate the list with 10 titles per page
-#         paginator = commands.Paginator(prefix='', suffix='', max_size=2000)  # 2000 is the maximum character limit for a message
-#         for title in queue_list:
-#             paginator.add_line(title)
-
-#         # Send the pages as individual messages
-#         for page in paginator.pages:
-#             await ctx.send(page)
-
-
 @bot.command(help="List the current songs in the queue.")
 async def queue(ctx):
     if music.queue.empty():
@@ -262,21 +245,6 @@ async def queue(ctx):
         embed = discord.Embed(title="Queue", description="\n".join(queue_list[:songs_per_page]))
         view = QueueView()
         await ctx.send(embed=embed, view=view)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 @bot.command(help="A test command to play 'pony.mp3' in the voice channel you are in.")
 async def test(ctx):
