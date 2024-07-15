@@ -6,10 +6,12 @@ import asyncio
 import ffmpeg
 from gtts import gTTS
 from discord import Color
+from discord.ext import commands
 from dotenv import load_dotenv, find_dotenv
 from keep_alive import keep_alive
-from discord.ext import commands
+from discord.ext import commands, tasks
 from music_functions import Music, search_youtube
+
 
 
 _ = load_dotenv(find_dotenv())  # Read local .env file
@@ -35,6 +37,7 @@ async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})') 
 
 
+
 def get_closest_username(input_username, members):
     closest_username = discord.utils.find(
         lambda m: m.name.lower().startswith(input_username.lower()) or m.display_name.lower().startswith(
@@ -54,7 +57,7 @@ async def rainbow_text_animation(rainbow_message, message, user_mention, delay=0
             rainbow_text += char
     rainbow_message = await message.channel.send('↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓')
     while True:  # Number of color iterations
-        embed = discord.Embed(description=f'{user_mention} You are a GAMER', color=Color.random())
+        embed = discord.Embed(description=f'{user_mention} U ARE A GAMER', color=Color.random())
         await rainbow_message.edit(embed=embed)
         await asyncio.sleep(delay)
 
@@ -123,27 +126,54 @@ async def urlplay(ctx, *, url):
         else:
             vc = ctx.guild.voice_client
 
-        await music.enqueue(ctx=ctx, url=url)  # Call the play function with ctx instead of message
-    else:
-        await ctx.send('You need to be in a voice channel to use $pony.')
+        if "youtube.com/playlist" in url:
+            # Handle YouTube playlists
+            await music.enqueue_youtube_playlist(ctx=ctx, url=url)
+        else:
+            # Handle single YouTube video/audio URLs
+            await music.enqueue_url(ctx=ctx, url=url)  # Call the play function with ctx instead of message
 
+        if not music.queue.empty() and not music.is_playing(ctx) and not music.playing_list:
+            music.playing_list = True  # Set the loop to running
+
+            # Play the next URL
+            await music.play_next(ctx)
+            music.playing_list = False  # Reset the loop status when done playing
+    else:
+        await ctx.send('You need to be in a voice channel to use $urlplay.')
+
+
+is_loop_running = False  # Global variable to track the loop status
 
 @bot.command(help="Search for a YouTube video or audio and queue it in the playlist.")
 async def search(ctx, *, query):
-    url = await search_youtube(ctx=ctx, query=query)
 
+  
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
 
+        song = await search_youtube(ctx=ctx, query=query)
+      
         if not ctx.guild.voice_client:
             vc = await voice_channel.connect()
         else:
             vc = ctx.guild.voice_client
-
+        
         # Use the play2 method of the Music class
-        await music.enqueue(ctx=ctx, url=url)
+        await music.enqueue(ctx=ctx, song=song)
+
+        # Check if the queue is not empty, the bot is not already playing, and the loop is not running
+        print(not music.queue.empty() and not music.is_playing(ctx) and not music.playing_list)
+        if not music.queue.empty() and not music.is_playing(ctx) and not music.playing_list:
+            music.playing_list = True  # Set the loop to running
+
+            # Play the next URL
+            await music.play_next(ctx)
+            music.playing_list = False  # Reset the loop status when done playing
+
     else:
-        await ctx.send('You need to be in a voice channel to use $pony.')
+        await ctx.send('You need to be in a voice channel to use $search.')
+
 
 
 
@@ -167,6 +197,84 @@ async def resume(ctx):
         await ctx.send("Resumed ⏯️")
     else:
         await ctx.send("Nothing is paused to resume.")
+
+
+@bot.command(help="Skip the currently playing song and play the next song in the queue.")
+async def skip(ctx):
+    music.skip(ctx)
+    await ctx.send("Skipped ⏭️")
+
+
+# @bot.command(help="List the current songs in the queue.")
+# async def queue(ctx):
+#     if music.queue.empty():
+#         await ctx.send("The queue is empty.")
+#     else:
+#         queue_list = [song.title for song in music.queue.queue]  # Extract titles from Song instances
+
+#         # Paginate the list with 10 titles per page
+#         paginator = commands.Paginator(prefix='', suffix='', max_size=2000)  # 2000 is the maximum character limit for a message
+#         for title in queue_list:
+#             paginator.add_line(title)
+
+#         # Send the pages as individual messages
+#         for page in paginator.pages:
+#             await ctx.send(page)
+
+
+@bot.command(help="List the current songs in the queue.")
+async def queue(ctx):
+    if music.queue.empty():
+        await ctx.send("The queue is empty.")
+    else:
+        queue_list = [song.title for song in music.queue.queue]  # Extract titles from Song instances
+
+        # Paginate the list with 10 titles per page
+        songs_per_page = 10
+        num_pages = (len(queue_list) + songs_per_page - 1) // songs_per_page
+
+        # Create a list of options for the Select component
+        select_options = [
+            discord.SelectOption(label=f"Page {i + 1}", value=str(i))
+            for i in range(num_pages)
+        ]
+
+        # Create the Select component
+        select = discord.ui.Select(placeholder="Select a page", options=select_options)
+
+        # Define the View
+        class QueueView(discord.ui.View):
+            def __init__(self):
+                super().__init__()
+                self.add_item(select)
+
+            # Callback for handling Select option selection
+            @discord.ui.select(placeholder="Select a page", options=select_options)
+            async def select_callback(self, select: discord.ui.Select, interaction: discord.Interaction):
+                selected_page = int(select.values[0])
+                start_index = selected_page * songs_per_page
+                end_index = (selected_page + 1) * songs_per_page
+
+                embed = discord.Embed(title="Queue", description="\n".join(queue_list[start_index:end_index]))
+                await interaction.response.edit_message(embed=embed, view=self)
+
+        # Send the first page as an embedded message with the QueueView
+        embed = discord.Embed(title="Queue", description="\n".join(queue_list[:songs_per_page]))
+        view = QueueView()
+        await ctx.send(embed=embed, view=view)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -225,4 +333,5 @@ async def on_message(message):
 keep_alive()
 my_secret = os.environ['TOKEN']
 bot.run(my_secret)
+
 
