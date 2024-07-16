@@ -1,6 +1,8 @@
 # Da Chin Discord Bot
 
 This is a Discord bot with various functions, primarily serving as a YouTube audio music bot in voice channels.
+<img src="https://github.com/user-attachments/assets/7ed6578c-eaec-4bb9-8ff7-bc5131aaec54" width="500" height="400">
+
 
 ## Table of Contents
 1. [Features](#features)
