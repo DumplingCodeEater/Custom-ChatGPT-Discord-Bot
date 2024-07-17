@@ -7,24 +7,30 @@ import asyncio
 import queue
 from discord.ext import commands
 
+"""
+Represents a song object using the Youtube video's title, URL, and duration
+"""
 class Song:
   def __init__(self, title, url, duration):
         self.title = title
         self.url = url
         self.duration = duration
 
+"""
+Manages the audio music playback, including queueing, playing, and looping songs
+"""
 class Music:
     def __init__(self):
         self.queue = queue.Queue()
         self.playing_list = False
         self.loop_queue = False  # New attribute to store loop state
 
-
+    # Toggles the loop state of the queue
     def toggle_loop_queue(self):
         self.loop_queue = not self.loop_queue
         return self.loop_queue
 
-  
+    # Converts a video file to an audio file using ffmpeg
     def convert_to_audio(self, video_file, audio_file):
         (
             ffmpeg.input(video_file)
@@ -32,7 +38,8 @@ class Music:
             .overwrite_output()
             .run()
         )
-  
+    
+    # Plays a song from a URL or a local file
     async def play(self, ctx, *, url_or_filename):
         if not ctx.voice_client:
             await ctx.invoke(ctx.bot.get_command("join"))
@@ -80,7 +87,8 @@ class Music:
 
         ctx.voice_client.play(source)
 
-
+  
+    # Plays the next song in the queue
     async def play_next(self, ctx):
         if not self.queue.empty():
             song = self.queue.get()  # Get the next Song instance from the queue
@@ -134,8 +142,7 @@ class Music:
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
-    # Enqueues entire playlist from youtube
-    # Enqueues entire playlist from youtube
+    # Enqueues the video audio from an entire playlist from Youtube
     async def enqueue_youtube_playlist(self, ctx, url):
         ydl_opts = {
             'dump_single_json': True,
@@ -150,18 +157,18 @@ class Music:
                 if playlist_songs:
                     for song_info in playlist_songs:
                         try:
-                            # Extract song title, URL, and duration from the playlist
+                            # Extracts song title, URL, and duration from the playlist
                             song_title = song_info['title']
                             song_url = song_info['url']
                             song_duration = song_info['duration']
     
-                            # Create a Song instance for each song in the playlist
+                            # Creates a Song instance for each song in the playlist
                             song = Song(title=song_title, url=song_url, duration=song_duration)
     
-                            # Enqueue each song from the playlist
+                            # Enqueues each song from the playlist
                             await self.enqueue(ctx=ctx, song=song)
                         except KeyError as e:
-                            # Handle the KeyError by printing an error message and continuing to the next song
+                            # Handles the KeyError by printing an error message and continuing to the next song
                             print(f"Skipping song due to missing key: {e}")
             else:
                 await ctx.send("Couldn't extract playlist information.")
@@ -188,8 +195,8 @@ class Music:
             except KeyError as e:
                 # Handle the KeyError by sending an error message
                 await ctx.send(f"Error: Missing key '{e}'. The provided URL may not be a valid YouTube video or audio.")
-    
-          
+
+# Searches YouTube for songs matching the query and returns the top 5 results
 async def search_youtube(ctx, query):
     ydl_opts = {
         'dump_json': True,
