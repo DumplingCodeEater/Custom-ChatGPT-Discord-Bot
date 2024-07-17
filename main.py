@@ -14,16 +14,16 @@ from music_functions import Music, search_youtube
 
 
 
-_ = load_dotenv(find_dotenv())  # Read local .env file
+_ = load_dotenv(find_dotenv())  # Reads local .env file
 
 intents = discord.Intents.all()
 intents.message_content = True
-intents.voice_states = True  # Enable voice state events
+intents.voice_states = True  # Enables voice state events
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 
-logging.basicConfig(level=logging.INFO)  # Configure logging
+logging.basicConfig(level=logging.INFO)  # Configures logging
 logger = logging.getLogger(__name__)
 
 colors = [Color.red(), Color.orange(), Color.gold(), Color.green(), Color.blue(), Color.purple()]  # Rainbow colors
@@ -37,7 +37,7 @@ async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})') 
 
 
-
+# Algorithm to find closest Discord username based on input text
 def get_closest_username(input_username, members):
     closest_username = discord.utils.find(
         lambda m: m.name.lower().startswith(input_username.lower()) or m.display_name.lower().startswith(
@@ -46,7 +46,7 @@ def get_closest_username(input_username, members):
     )
     return closest_username
 
-
+# Styling for $nay command text output on Discord
 async def rainbow_text_animation(rainbow_message, message, user_mention, delay=0.5):
     rainbow_text = ''
     for char in rainbow_message:
@@ -111,7 +111,7 @@ async def urlplay_downloaded(ctx, *, url_or_filename):
         else:
             vc = ctx.guild.voice_client
 
-        await music.play(ctx=ctx, url_or_filename=url_or_filename)  # Call the play function with ctx instead of message
+        await music.play(ctx=ctx, url_or_filename=url_or_filename)  # Calls the play function with ctx instead of message
     else:
         await ctx.send('You need to be in a voice channel to use $pony.')
 
@@ -246,7 +246,7 @@ async def queue(ctx):
         view = QueueView()
         await ctx.send(embed=embed, view=view)
 
-@bot.command(help="A test command to play 'pony.mp3' in the voice channel you are in.")
+@bot.command(help="A test command to play a 'pony.mp3' file in the voice channel you are in.")
 async def test(ctx):
     # Send a test message
     await ctx.channel.send('This is a test command!')
